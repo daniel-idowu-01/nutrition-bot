@@ -1,13 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { IncomingWebhookDto, WhatsAppMessage } from './dto/incoming-message.dto';
+import { MealsService } from 'src/meals/meals.service';
 
 @Injectable()
 export class WhatsAppService {
   private readonly logger = new Logger(WhatsAppService.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    @Inject(forwardRef(() => MealsService))
+    private readonly mealsService: MealsService,
+  ) {}
 
   async handleIncoming(body: IncomingWebhookDto): Promise<void> {
     const messages = body.entry?.[0]?.changes?.[0]?.value?.messages;
@@ -22,10 +27,10 @@ export class WhatsAppService {
     this.logger.log(`Message from ${message.from}, type: ${message.type}`);
 
     if (message.type === 'image') {
-      // await this.mealsService.analyseImage(message);
-      await this.sendMessage(message.from, '📸 Got your meal photo! Analysing it now...');
+        await this.sendMessage(message.from, '📸 Got your meal photo! Analysing it now...');
+        await this.mealsService.analyseImage(message);
     } else if (message.type === 'text') {
-      await this.sendMessage(message.from, 'Send me a photo of your meal and I\'ll give you nutritional feedback!');
+        await this.sendMessage(message.from, 'Send me a photo of your meal and I\'ll give you nutritional feedback!');
     }
   }
 

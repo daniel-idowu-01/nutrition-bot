@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { MealLog, MealLogDocument } from './schemas/meal-log.schema';
@@ -16,6 +16,7 @@ export class MealsService {
     @InjectModel(MealLog.name) private readonly mealLogModel: Model<MealLogDocument>,
     private readonly claudeService: ClaudeService,
     private readonly cloudinaryService: CloudinaryService,
+    @Inject(forwardRef(() => WhatsAppService))
     private readonly whatsappService: WhatsAppService,
     private readonly usersService: UserService,
   ) {}

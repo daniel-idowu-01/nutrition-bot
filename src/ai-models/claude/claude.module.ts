@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { ClaudeService } from './clause.service';
 
-@Module({})
+@Module({
+  providers: [ClaudeService],
+  exports: [ClaudeService],
+})
 export class ClaudeModule {}
