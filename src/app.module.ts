@@ -6,6 +6,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from './users/users.module';
 import { MealsModule } from './meals/meals.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -18,7 +19,8 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     }),
     UsersModule,
     MealsModule,
-    WhatsappModule,],
+    WhatsappModule,
+    CloudinaryModule,],
   controllers: [AppController],
   providers: [AppService],
 })
