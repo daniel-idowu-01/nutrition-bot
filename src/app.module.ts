@@ -7,7 +7,6 @@ import { UsersModule } from './users/users.module';
 import { MealsModule } from './meals/meals.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
-import { ClaudeModule } from './ai-models/claude/claude.module';
 
 @Module({
   imports: [
@@ -22,7 +21,7 @@ import { ClaudeModule } from './ai-models/claude/claude.module';
     MealsModule,
     WhatsappModule,
     CloudinaryModule,
-    ClaudeModule,],
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

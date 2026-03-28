@@ -1,25 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
-import { buildMealAnalysisPrompt } from './prompts/meal-analysis.prompt';
-
-export interface MealAnalysisResult {
-  detectedFoods: string[];
-  nutrients: {
-    estimatedCalories?: number;
-    proteinG?: number;
-    carbsG?: number;
-    sugarG?: number;
-    fatG?: number;
-    fibreG?: number;
-  };
-  concerns: string[];
-  patternAlerts: string[];
-  advice: string;
-}
+import {
+  MealAnalysisInput,
+  MealAnalysisProvider,
+  MealAnalysisResult,
+} from '../meal-analysis.types';
+import { buildMealAnalysisPrompt } from '../prompts/meal-analysis.prompt';
 
 @Injectable()
-export class ClaudeService {
+export class ClaudeService implements MealAnalysisProvider {
+  readonly providerName = 'claude';
   private readonly client: Anthropic;
   private readonly logger = new Logger(ClaudeService.name);
 
@@ -29,11 +20,11 @@ export class ClaudeService {
     });
   }
 
-  async analyseMeal(
-    imageBuffer: Buffer,
-    mimeType: string,
-    historySummary: string | null,
-  ): Promise<MealAnalysisResult> {
+  async analyseMeal({
+    imageBuffer,
+    mimeType,
+    historySummary,
+  }: MealAnalysisInput): Promise<MealAnalysisResult> {
     const base64Image = imageBuffer.toString('base64');
     const prompt = buildMealAnalysisPrompt(historySummary);
 

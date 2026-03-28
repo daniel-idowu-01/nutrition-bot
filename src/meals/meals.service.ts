@@ -2,11 +2,12 @@ import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { MealLog, MealLogDocument } from './schemas/meal-log.schema';
-import { ClaudeService } from 'src/ai-models/claude/clause.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { UserService } from 'src/users/user.service';
 import { WhatsAppMessage } from '../whatsapp/dto/incoming-message.dto';
+import { MealAnalysisResult } from 'src/ai-models/meal-analysis.types';
+import { MealAnalysisService } from 'src/ai-models/meal-analysis.service';
 
 @Injectable()
 export class MealsService {
@@ -14,7 +15,7 @@ export class MealsService {
 
   constructor(
     @InjectModel(MealLog.name) private readonly mealLogModel: Model<MealLogDocument>,
-    private readonly claudeService: ClaudeService,
+    private readonly mealAnalysisService: MealAnalysisService,
     private readonly cloudinaryService: CloudinaryService,
     @Inject(forwardRef(() => WhatsAppService))
     private readonly whatsappService: WhatsAppService,
@@ -33,11 +34,11 @@ export class MealsService {
 
       const historySummary = await this.buildHistorySummary(user._id.toString());
 
-      const analysis = await this.claudeService.analyseMeal(
+      const analysis = await this.mealAnalysisService.analyseMeal({
         imageBuffer,
-        image?.mime_type ?? '',
+        mimeType: image?.mime_type ?? '',
         historySummary,
-      );
+      });
 
       await this.mealLogModel.create({
         userId: user._id,
@@ -83,7 +84,7 @@ export class MealsService {
     return lines.join('\n');
   }
 
-  private formatReply(analysis: Awaited<ReturnType<ClaudeService['analyseMeal']>>): string {
+  private formatReply(analysis: MealAnalysisResult): string {
     const lines: string[] = [];
 
     lines.push(`*Meal detected:* ${analysis.detectedFoods.join(', ')}`);
