@@ -27,10 +27,10 @@ export class WhatsAppService {
     this.logger.log(`Message from ${message.from}, type: ${message.type}`);
 
     if (message.type === 'image') {
-        await this.sendMessage(message.from, '📸 Got your meal photo! Analysing it now...');
-        await this.mealsService.analyseImage(message);
+      await this.sendMessage(message.from, 'Got your meal photo. Analysing it now...');
+      await this.mealsService.analyseImage(message);
     } else if (message.type === 'text') {
-        await this.sendMessage(message.from, 'Send me a photo of your meal and I\'ll give you nutritional feedback!');
+      await this.mealsService.respondToText(message);
     }
   }
 

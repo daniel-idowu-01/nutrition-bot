@@ -63,6 +63,30 @@ export class MealsService {
     }
   }
 
+  async respondToText(message: WhatsAppMessage): Promise<void> {
+    const { from } = message;
+
+    try {
+      const user = await this.usersService.findOrCreate(from);
+      const historySummary = await this.buildHistorySummary(user._id.toString());
+      const reply = await this.mealAnalysisService.generateTextResponse({
+        message: message.text?.body ?? '',
+        historySummary,
+      });
+
+      await this.whatsappService.sendMessage(
+        from,
+        reply || 'Tell me about your meal, your nutrition goals, or send a meal photo for analysis.',
+      );
+    } catch (error) {
+      this.logger.error(`Failed to answer text message for ${from}`, error);
+      await this.whatsappService.sendMessage(
+        from,
+        'Sorry, I could not answer that right now. Ask me a nutrition question or send a meal photo.',
+      );
+    }
+  }
+
   private async buildHistorySummary(userId: string): Promise<string | null> {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);

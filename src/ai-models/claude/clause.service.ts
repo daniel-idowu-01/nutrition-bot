@@ -5,8 +5,10 @@ import {
   MealAnalysisInput,
   MealAnalysisProvider,
   MealAnalysisResult,
+  NutritionTextInput,
 } from '../meal-analysis.types';
 import { buildMealAnalysisPrompt } from '../prompts/meal-analysis.prompt';
+import { buildNutritionChatPrompt } from '../prompts/nutrition-chat.prompt';
 
 @Injectable()
 export class ClaudeService implements MealAnalysisProvider {
@@ -57,5 +59,26 @@ export class ClaudeService implements MealAnalysisProvider {
       this.logger.error('Failed to parse Claude response', text);
       throw new Error('AI returned an unexpected response format');
     }
+  }
+
+  async generateTextResponse({
+    message,
+    historySummary,
+  }: NutritionTextInput): Promise<string> {
+    const prompt = buildNutritionChatPrompt(message, historySummary);
+
+    const response = await this.client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 512,
+      messages: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: prompt }],
+        },
+      ],
+    });
+
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    return text.trim();
   }
 }

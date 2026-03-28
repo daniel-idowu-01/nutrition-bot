@@ -4,6 +4,7 @@ import {
   MealAnalysisInput,
   MealAnalysisProvider,
   MealAnalysisResult,
+  NutritionTextInput,
 } from './meal-analysis.types';
 import { ClaudeService } from './claude/clause.service';
 import { GeminiService } from './gemini/gemini.service';
@@ -25,6 +26,18 @@ export class MealAnalysisService {
   }
 
   async analyseMeal(input: MealAnalysisInput): Promise<MealAnalysisResult> {
+    const provider = this.getProvider();
+    this.logger.log(`Using ${provider.providerName} provider for meal analysis`);
+    return provider.analyseMeal(input);
+  }
+
+  async generateTextResponse(input: NutritionTextInput): Promise<string> {
+    const provider = this.getProvider();
+    this.logger.log(`Using ${provider.providerName} provider for text response`);
+    return provider.generateTextResponse(input);
+  }
+
+  private getProvider(): MealAnalysisProvider {
     const configuredProvider = (
       this.config.get<string>('AI_PROVIDER') ?? this.claudeService.providerName
     ).toLowerCase();
@@ -37,7 +50,6 @@ export class MealAnalysisService {
       );
     }
 
-    this.logger.log(`Using ${provider.providerName} provider for meal analysis`);
-    return provider.analyseMeal(input);
+    return provider;
   }
 }

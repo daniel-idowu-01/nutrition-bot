@@ -4,6 +4,11 @@ export interface MealAnalysisInput {
   historySummary: string | null;
 }
 
+export interface NutritionTextInput {
+  message: string;
+  historySummary: string | null;
+}
+
 export interface MealAnalysisResult {
   detectedFoods: string[];
   nutrients: {
@@ -22,4 +27,5 @@ export interface MealAnalysisResult {
 export interface MealAnalysisProvider {
   readonly providerName: string;
   analyseMeal(input: MealAnalysisInput): Promise<MealAnalysisResult>;
+  generateTextResponse(input: NutritionTextInput): Promise<string>;
 }
