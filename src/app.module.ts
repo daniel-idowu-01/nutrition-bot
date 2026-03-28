@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { MealsModule } from './meals/meals.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { ConversationsModule } from './conversations/conversations.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     MealsModule,
     WhatsappModule,
     CloudinaryModule,
+    ConversationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

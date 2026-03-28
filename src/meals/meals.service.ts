@@ -8,6 +8,7 @@ import { UserService } from 'src/users/user.service';
 import { WhatsAppMessage } from '../whatsapp/dto/incoming-message.dto';
 import { MealAnalysisResult } from 'src/ai-models/meal-analysis.types';
 import { MealAnalysisService } from 'src/ai-models/meal-analysis.service';
+import { ConversationsService } from 'src/conversations/conversations.service';
 
 @Injectable()
 export class MealsService {
@@ -20,6 +21,7 @@ export class MealsService {
     @Inject(forwardRef(() => WhatsAppService))
     private readonly whatsappService: WhatsAppService,
     private readonly usersService: UserService,
+    private readonly conversationsService: ConversationsService,
   ) {}
 
   async analyseImage(message: WhatsAppMessage): Promise<void> {
@@ -69,9 +71,23 @@ export class MealsService {
     try {
       const user = await this.usersService.findOrCreate(from);
       const historySummary = await this.buildHistorySummary(user._id.toString());
+      const conversationHistory = await this.conversationsService.getRecentConversation(
+        user._id.toString(),
+      );
+      const directReply = this.buildDirectConversationReply(
+        message.text?.body ?? '',
+        conversationHistory,
+      );
+
+      if (directReply) {
+        await this.whatsappService.sendMessage(from, directReply);
+        return;
+      }
+
       const reply = await this.mealAnalysisService.generateTextResponse({
         message: message.text?.body ?? '',
         historySummary,
+        conversationHistory,
       });
 
       await this.whatsappService.sendMessage(
@@ -135,5 +151,32 @@ export class MealsService {
     lines.push(`*Advice:* ${analysis.advice}`);
 
     return lines.join('\n');
+  }
+
+  private buildDirectConversationReply(
+    messageText: string,
+    conversationHistory: Array<{ role: 'user' | 'assistant'; text: string }>,
+  ): string | null {
+    const normalizedMessage = messageText.trim().toLowerCase();
+
+    const isLastAssistantMessageQuery =
+      normalizedMessage.includes('last message you sent') ||
+      normalizedMessage.includes('previous message you sent') ||
+      normalizedMessage.includes('what did you send') ||
+      normalizedMessage.includes('what was the last thing you said');
+
+    if (!isLastAssistantMessageQuery) {
+      return null;
+    }
+
+    const previousAssistantMessage = [...conversationHistory]
+      .reverse()
+      .find((entry) => entry.role === 'assistant' || entry.role === 'user');
+
+    if (!previousAssistantMessage) {
+      return "I don't have any earlier message from this chat yet.";
+    }
+
+    return `The last message I sent was: "${previousAssistantMessage.text}"`;
   }
 }

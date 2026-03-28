@@ -77,6 +77,7 @@ export class GeminiService implements MealAnalysisProvider {
   async generateTextResponse({
     message,
     historySummary,
+    conversationHistory,
   }: NutritionTextInput): Promise<string> {
     const apiKey = this.config.get<string>('GEMINI_API_KEY');
     const model = this.config.get<string>('GEMINI_MODEL') ?? 'gemini-2.5-flash';
@@ -85,7 +86,11 @@ export class GeminiService implements MealAnalysisProvider {
       throw new Error('GEMINI_API_KEY is not configured');
     }
 
-    const prompt = buildNutritionChatPrompt(message, historySummary);
+    const prompt = buildNutritionChatPrompt(
+      message,
+      historySummary,
+      conversationHistory,
+    );
     const response = await axios.post<GeminiGenerateContentResponse>(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {

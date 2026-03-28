@@ -7,6 +7,10 @@ export interface MealAnalysisInput {
 export interface NutritionTextInput {
   message: string;
   historySummary: string | null;
+  conversationHistory: Array<{
+    role: 'user' | 'assistant';
+    text: string;
+  }>;
 }
 
 export interface MealAnalysisResult {

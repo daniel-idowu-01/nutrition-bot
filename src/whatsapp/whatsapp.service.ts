@@ -2,7 +2,9 @@ import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { IncomingWebhookDto, WhatsAppMessage } from './dto/incoming-message.dto';
+import { ConversationsService } from 'src/conversations/conversations.service';
 import { MealsService } from 'src/meals/meals.service';
+import { UserService } from 'src/users/user.service';
 
 @Injectable()
 export class WhatsAppService {
@@ -10,6 +12,8 @@ export class WhatsAppService {
 
   constructor(
     private readonly config: ConfigService,
+    private readonly conversationsService: ConversationsService,
+    private readonly usersService: UserService,
     @Inject(forwardRef(() => MealsService))
     private readonly mealsService: MealsService,
   ) {}
@@ -30,6 +34,14 @@ export class WhatsAppService {
       await this.sendMessage(message.from, 'Got your meal photo. Analysing it now...');
       await this.mealsService.analyseImage(message);
     } else if (message.type === 'text') {
+      const user = await this.usersService.findOrCreate(message.from);
+      await this.conversationsService.logMessage({
+        userId: user._id,
+        role: 'user',
+        messageType: 'text',
+        text: message.text?.body ?? '',
+        externalMessageId: message.id,
+      });
       await this.mealsService.respondToText(message);
     }
   }
@@ -56,7 +68,7 @@ export class WhatsAppService {
     const phoneNumberId = this.config.get('META_PHONE_NUMBER_ID');
     const token = this.config.get('META_ACCESS_TOKEN');
 
-    await axios.post(
+    const response = await axios.post(
       `https://graph.facebook.com/${version}/${phoneNumberId}/messages`,
       {
         messaging_product: 'whatsapp',
@@ -66,5 +78,14 @@ export class WhatsAppService {
       },
       { headers: { Authorization: `Bearer ${token}` } },
     );
+
+    const user = await this.usersService.findOrCreate(to);
+    await this.conversationsService.logMessage({
+      userId: user._id,
+      role: 'assistant',
+      messageType: 'text',
+      text,
+      externalMessageId: response.data?.messages?.[0]?.id,
+    });
   }
 }

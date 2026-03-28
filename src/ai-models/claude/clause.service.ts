@@ -64,8 +64,13 @@ export class ClaudeService implements MealAnalysisProvider {
   async generateTextResponse({
     message,
     historySummary,
+    conversationHistory,
   }: NutritionTextInput): Promise<string> {
-    const prompt = buildNutritionChatPrompt(message, historySummary);
+    const prompt = buildNutritionChatPrompt(
+      message,
+      historySummary,
+      conversationHistory,
+    );
 
     const response = await this.client.messages.create({
       model: 'claude-sonnet-4-20250514',
