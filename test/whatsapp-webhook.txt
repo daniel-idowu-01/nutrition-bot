@@ -1,0 +1,27 @@
+curl -X POST http://localhost:3000/your-endpoint \
+  -H "Content-Type: application/json" \
+  -d '{
+    "object": "whatsapp_business_account",
+    "entry": [
+      {
+        "changes": [
+          {
+            "value": {
+              "messages": [
+                {
+                  "from": "2348012345678",
+                  "id": "wamid.test123",
+                  "timestamp": "1711620000",
+                  "type": "text",
+                  "text": {
+                    "body": "Test from curl"
+                  }
+                }
+              ],
+              "statuses": []
+            }
+          }
+        ]
+      }
+    ]
+  }'

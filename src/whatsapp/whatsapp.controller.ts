@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { WhatsAppService } from './whatsapp.service';
 import type { IncomingWebhookDto } from './dto/incoming-message.dto';
 
-@Controller('webhook')
+@Controller('whatsapp/webhook')
 export class WhatsAppController {
   constructor(
     private readonly service: WhatsAppService,
