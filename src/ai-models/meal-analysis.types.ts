@@ -14,18 +14,27 @@ export interface NutritionTextInput {
 }
 
 export interface MealAnalysisResult {
-  detectedFoods: string[];
+  productName?: string;
+  productType?: string;
+  ingredients: string[];
+  labelClaims: string[];
   nutrients: {
+    servingSize?: string;
     estimatedCalories?: number;
     proteinG?: number;
     carbsG?: number;
     sugarG?: number;
     fatG?: number;
     fibreG?: number;
+    sodiumMg?: number;
+    saturatedFatG?: number;
   };
   concerns: string[];
   patternAlerts: string[];
+  medicalTips: string[];
+  verdict: string;
   advice: string;
+  uncertainties: string[];
 }
 
 export interface MealAnalysisProvider {

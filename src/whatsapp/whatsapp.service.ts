@@ -31,7 +31,10 @@ export class WhatsAppService {
     this.logger.log(`Message from ${message.from}, type: ${message.type}`);
 
     if (message.type === 'image') {
-      await this.sendMessage(message.from, 'Got your meal photo. Analysing it now...');
+      await this.sendMessage(
+        message.from,
+        'Got your product photo. I am reading the label and ingredients now...',
+      );
       await this.mealsService.analyseImage(message);
     } else if (message.type === 'text') {
       const user = await this.usersService.findOrCreate(message.from);

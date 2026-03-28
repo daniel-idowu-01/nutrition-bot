@@ -29,11 +29,8 @@ export class MealsService {
 
     try {
       const user = await this.usersService.findOrCreate(from);
-
       const imageBuffer = await this.whatsappService.downloadMedia(image?.id ?? '');
-
       const { url, publicId } = await this.cloudinaryService.uploadImageBuffer(imageBuffer);
-
       const historySummary = await this.buildHistorySummary(user._id.toString());
 
       const analysis = await this.mealAnalysisService.analyseMeal({
@@ -46,21 +43,24 @@ export class MealsService {
         userId: user._id,
         cloudinaryUrl: url,
         cloudinaryPublicId: publicId,
-        detectedFoods: analysis.detectedFoods,
+        productName: analysis.productName,
+        productType: analysis.productType,
+        detectedFoods: analysis.ingredients,
+        labelClaims: analysis.labelClaims,
         nutrients: analysis.nutrients,
         concerns: analysis.concerns,
+        medicalTips: analysis.medicalTips,
+        verdict: analysis.verdict,
         aiAdvice: analysis.advice,
         mealTime: new Date(),
       });
 
-      const reply = this.formatReply(analysis);
-      await this.whatsappService.sendMessage(from, reply);
-
+      await this.whatsappService.sendMessage(from, this.formatReply(analysis));
     } catch (error) {
-      this.logger.error(`Failed to analyse meal for ${from}`, error);
+      this.logger.error(`Failed to review product image for ${from}`, error);
       await this.whatsappService.sendMessage(
         from,
-        "Sorry, I couldn't analyse that image. Please try sending a clearer photo of your meal."
+        "Sorry, I couldn't review that product image. Please send a clearer photo showing the ingredients or nutrition label.",
       );
     }
   }
@@ -74,6 +74,7 @@ export class MealsService {
       const conversationHistory = await this.conversationsService.getRecentConversation(
         user._id.toString(),
       );
+
       const directReply = this.buildDirectConversationReply(
         message.text?.body ?? '',
         conversationHistory,
@@ -92,13 +93,13 @@ export class MealsService {
 
       await this.whatsappService.sendMessage(
         from,
-        reply || 'Tell me about your meal, your nutrition goals, or send a meal photo for analysis.',
+        reply || 'Ask about a product, ingredients, calories, or send a clear product photo for review.',
       );
     } catch (error) {
       this.logger.error(`Failed to answer text message for ${from}`, error);
       await this.whatsappService.sendMessage(
         from,
-        'Sorry, I could not answer that right now. Ask me a nutrition question or send a meal photo.',
+        'Sorry, I could not answer that right now. Ask me about a product or send a clear label photo.',
       );
     }
   }
@@ -116,9 +117,9 @@ export class MealsService {
     if (!recentMeals.length) return null;
 
     const lines = recentMeals.map((meal, i) => {
-      const foods = meal.detectedFoods.join(', ');
+      const productName = meal.productName || meal.detectedFoods.join(', ') || 'Unknown product';
       const cals = meal.nutrients?.estimatedCalories ?? 'unknown';
-      return `Meal ${i + 1}: ${foods} (~${cals} kcal)`;
+      return `Product ${i + 1}: ${productName} (~${cals} kcal)`;
     });
 
     return lines.join('\n');
@@ -127,19 +128,49 @@ export class MealsService {
   private formatReply(analysis: MealAnalysisResult): string {
     const lines: string[] = [];
 
-    lines.push(`*Meal detected:* ${analysis.detectedFoods.join(', ')}`);
+    lines.push(`*Product:* ${analysis.productName || 'Unknown product'}`);
+
+    if (analysis.productType) {
+      lines.push(`*Category:* ${analysis.productType}`);
+    }
+
     lines.push('');
 
-    if (analysis.nutrients.estimatedCalories) {
-      lines.push(`*Estimated calories:* ${analysis.nutrients.estimatedCalories} kcal`);
-      lines.push(`• Protein: ${analysis.nutrients.proteinG}g`);
-      lines.push(`• Carbs: ${analysis.nutrients.carbsG}g  |  Sugar: ${analysis.nutrients.sugarG}g`);
-      lines.push(`• Fat: ${analysis.nutrients.fatG}g  |  Fibre: ${analysis.nutrients.fibreG}g`);
+    if (analysis.ingredients.length) {
+      lines.push(`*Ingredients:* ${analysis.ingredients.join(', ')}`);
       lines.push('');
     }
 
-    if (analysis.concerns.length) {
-      lines.push(`*Concerns:* ${analysis.concerns.join(', ')}`);
+    if (analysis.labelClaims.length) {
+      lines.push(`*Label claims:* ${analysis.labelClaims.join(', ')}`);
+      lines.push('');
+    }
+
+    if (
+      analysis.nutrients.servingSize ||
+      analysis.nutrients.estimatedCalories !== undefined ||
+      analysis.nutrients.sugarG !== undefined ||
+      analysis.nutrients.sodiumMg !== undefined ||
+      analysis.nutrients.saturatedFatG !== undefined
+    ) {
+      lines.push('*Nutrition snapshot:*');
+
+      if (analysis.nutrients.servingSize) {
+        lines.push(`- Serving size: ${analysis.nutrients.servingSize}`);
+      }
+      if (analysis.nutrients.estimatedCalories !== undefined) {
+        lines.push(`- Calories: ${analysis.nutrients.estimatedCalories} kcal`);
+      }
+      if (analysis.nutrients.sugarG !== undefined) {
+        lines.push(`- Sugar: ${analysis.nutrients.sugarG}g`);
+      }
+      if (analysis.nutrients.sodiumMg !== undefined) {
+        lines.push(`- Sodium: ${analysis.nutrients.sodiumMg}mg`);
+      }
+      if (analysis.nutrients.saturatedFatG !== undefined) {
+        lines.push(`- Saturated fat: ${analysis.nutrients.saturatedFatG}g`);
+      }
+
       lines.push('');
     }
 
@@ -148,7 +179,24 @@ export class MealsService {
       lines.push('');
     }
 
+    if (analysis.concerns.length) {
+      lines.push(`*Health concerns:* ${analysis.concerns.join(', ')}`);
+      lines.push('');
+    }
+
+    if (analysis.medicalTips.length) {
+      lines.push(`*Medical tips:* ${analysis.medicalTips.join(' ')}`);
+      lines.push('');
+    }
+
+    lines.push(`*Health review:* ${analysis.verdict}`);
+    lines.push('');
     lines.push(`*Advice:* ${analysis.advice}`);
+
+    if (analysis.uncertainties.length) {
+      lines.push('');
+      lines.push(`*Unclear from image:* ${analysis.uncertainties.join(', ')}`);
+    }
 
     return lines.join('\n');
   }
@@ -171,7 +219,7 @@ export class MealsService {
 
     const previousAssistantMessage = [...conversationHistory]
       .reverse()
-      .find((entry) => entry.role === 'assistant' || entry.role === 'user');
+      .find((entry) => entry.role === 'assistant');
 
     if (!previousAssistantMessage) {
       return "I don't have any earlier message from this chat yet.";

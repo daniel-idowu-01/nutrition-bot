@@ -14,21 +14,39 @@ export class MealLog {
   @Prop({ required: true })
   cloudinaryPublicId: string;
 
+  @Prop()
+  productName?: string;
+
+  @Prop()
+  productType?: string;
+
   @Prop({ type: [String], default: [] })
   detectedFoods: string[];
 
+  @Prop({ type: [String], default: [] })
+  labelClaims: string[];
+
   @Prop({ type: Object })
   nutrients: {
+    servingSize?: string;
     estimatedCalories?: number;
     proteinG?: number;
     carbsG?: number;
     sugarG?: number;
     fatG?: number;
     fibreG?: number;
+    sodiumMg?: number;
+    saturatedFatG?: number;
   };
 
   @Prop({ type: [String], default: [] })
   concerns: string[];      // e.g. ["high sugar", "low protein"]
+
+  @Prop({ type: [String], default: [] })
+  medicalTips: string[];
+
+  @Prop()
+  verdict?: string;
 
   @Prop()
   aiAdvice: string;

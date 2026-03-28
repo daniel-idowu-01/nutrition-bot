@@ -29,6 +29,7 @@ export class WhatsAppController {
   @Post()
   @HttpCode(200)
   async receiveMessage(@Body() body: IncomingWebhookDto) {
+    console.log(body)
     await this.service.handleIncoming(body);
     return { status: 'ok' };
   }
