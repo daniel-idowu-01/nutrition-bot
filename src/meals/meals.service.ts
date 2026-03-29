@@ -38,24 +38,25 @@ export class MealsService {
         mimeType: image?.mime_type ?? '',
         historySummary,
       });
+      const normalizedAnalysis = this.normalizeAnalysisResult(analysis);
 
       await this.mealLogModel.create({
         userId: user._id,
         cloudinaryUrl: url,
         cloudinaryPublicId: publicId,
-        productName: analysis.productName,
-        productType: analysis.productType,
-        detectedFoods: analysis.ingredients,
-        labelClaims: analysis.labelClaims,
-        nutrients: analysis.nutrients,
-        concerns: analysis.concerns,
-        medicalTips: analysis.medicalTips,
-        verdict: analysis.verdict,
-        aiAdvice: analysis.advice,
+        productName: normalizedAnalysis.productName,
+        productType: normalizedAnalysis.productType,
+        detectedFoods: normalizedAnalysis.ingredients,
+        labelClaims: normalizedAnalysis.labelClaims,
+        nutrients: normalizedAnalysis.nutrients,
+        concerns: normalizedAnalysis.concerns,
+        medicalTips: normalizedAnalysis.medicalTips,
+        verdict: normalizedAnalysis.verdict,
+        aiAdvice: normalizedAnalysis.advice,
         mealTime: new Date(),
       });
 
-      await this.whatsappService.sendMessage(from, this.formatReply(analysis));
+      await this.whatsappService.sendMessage(from, this.formatReply(normalizedAnalysis));
     } catch (error) {
       this.logger.error(`Failed to review product image for ${from}`, error);
       await this.whatsappService.sendMessage(
@@ -199,6 +200,34 @@ export class MealsService {
     }
 
     return lines.join('\n');
+  }
+
+  private normalizeAnalysisResult(analysis: MealAnalysisResult): MealAnalysisResult {
+    return {
+      productName: analysis?.productName?.trim() || 'Unknown product',
+      productType: analysis?.productType?.trim() || undefined,
+      ingredients: this.toStringArray(analysis?.ingredients),
+      labelClaims: this.toStringArray(analysis?.labelClaims),
+      nutrients: analysis?.nutrients ?? {},
+      concerns: this.toStringArray(analysis?.concerns),
+      patternAlerts: this.toStringArray(analysis?.patternAlerts),
+      medicalTips: this.toStringArray(analysis?.medicalTips),
+      verdict:
+        analysis?.verdict?.trim() ||
+        'The product could not be fully assessed from this image.',
+      advice:
+        analysis?.advice?.trim() ||
+        'Please send a clearer photo of the ingredient list and nutrition facts panel.',
+      uncertainties: this.toStringArray(analysis?.uncertainties),
+    };
+  }
+
+  private toStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
   private buildDirectConversationReply(

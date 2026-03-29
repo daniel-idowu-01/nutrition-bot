@@ -37,6 +37,17 @@ export class ConversationsService {
     });
   }
 
+  async hasExternalMessageId(externalMessageId: string): Promise<boolean> {
+    const trimmedId = externalMessageId.trim();
+    if (!trimmedId) return false;
+
+    const existing = await this.conversationModel
+      .exists({ externalMessageId: trimmedId })
+      .lean();
+
+    return Boolean(existing);
+  }
+
   async getRecentConversation(
     userId: string | Types.ObjectId,
     limit = 12,

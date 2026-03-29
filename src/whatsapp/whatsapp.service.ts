@@ -9,6 +9,7 @@ import { UserService } from 'src/users/user.service';
 @Injectable()
 export class WhatsAppService {
   private readonly logger = new Logger(WhatsAppService.name);
+  private readonly processingMessageIds = new Set<string>();
 
   constructor(
     private readonly config: ConfigService,
@@ -29,23 +30,56 @@ export class WhatsAppService {
 
   private async routeMessage(message: WhatsAppMessage): Promise<void> {
     this.logger.log(`Message from ${message.from}, type: ${message.type}`);
+    const externalMessageId = message.id?.trim();
 
-    if (message.type === 'image') {
-      await this.sendMessage(
-        message.from,
-        'Got your product photo. I am reading the label and ingredients now...',
-      );
-      await this.mealsService.analyseImage(message);
-    } else if (message.type === 'text') {
-      const user = await this.usersService.findOrCreate(message.from);
-      await this.conversationsService.logMessage({
-        userId: user._id,
-        role: 'user',
-        messageType: 'text',
-        text: message.text?.body ?? '',
-        externalMessageId: message.id,
-      });
-      await this.mealsService.respondToText(message);
+    if (externalMessageId && this.processingMessageIds.has(externalMessageId)) {
+      this.logger.warn(`Skipping in-flight duplicate message ${externalMessageId}`);
+      return;
+    }
+
+    if (
+      externalMessageId &&
+      (await this.conversationsService.hasExternalMessageId(externalMessageId))
+    ) {
+      this.logger.warn(`Skipping duplicate message ${externalMessageId}`);
+      return;
+    }
+
+    if (externalMessageId) {
+      this.processingMessageIds.add(externalMessageId);
+    }
+
+    try {
+      if (message.type === 'image') {
+        const user = await this.usersService.findOrCreate(message.from);
+        await this.conversationsService.logMessage({
+          userId: user._id,
+          role: 'user',
+          messageType: 'image',
+          text: '[image upload]',
+          externalMessageId,
+        });
+
+        await this.sendMessage(
+          message.from,
+          'Got your product photo. I am reading the label and ingredients now...',
+        );
+        await this.mealsService.analyseImage(message);
+      } else if (message.type === 'text') {
+        const user = await this.usersService.findOrCreate(message.from);
+        await this.conversationsService.logMessage({
+          userId: user._id,
+          role: 'user',
+          messageType: 'text',
+          text: message.text?.body ?? '',
+          externalMessageId,
+        });
+        await this.mealsService.respondToText(message);
+      }
+    } finally {
+      if (externalMessageId) {
+        this.processingMessageIds.delete(externalMessageId);
+      }
     }
   }
 

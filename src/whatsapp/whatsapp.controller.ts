@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Query, Res, HttpCode } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  Res,
+  HttpCode,
+  Logger,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { WhatsAppService } from './whatsapp.service';
@@ -6,6 +15,8 @@ import type { IncomingWebhookDto } from './dto/incoming-message.dto';
 
 @Controller('whatsapp/webhook')
 export class WhatsAppController {
+  private readonly logger = new Logger(WhatsAppController.name);
+
   constructor(
     private readonly service: WhatsAppService,
     private readonly config: ConfigService,
@@ -29,8 +40,10 @@ export class WhatsAppController {
   @Post()
   @HttpCode(200)
   async receiveMessage(@Body() body: IncomingWebhookDto) {
-    console.log(body)
-    await this.service.handleIncoming(body);
+    void this.service.handleIncoming(body).catch((error: unknown) => {
+      this.logger.error('Failed to process incoming WhatsApp webhook', error);
+    });
+
     return { status: 'ok' };
   }
 }
