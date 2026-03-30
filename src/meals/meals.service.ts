@@ -127,6 +127,11 @@ export class MealsService {
   }
 
   private formatReply(analysis: MealAnalysisResult): string {
+    const topConcerns = analysis.concerns.slice(0, 2);
+    const shortAdvice = this.shortenText(analysis.advice, 180);
+    const shortVerdict = this.shortenText(analysis.verdict, 160);
+    const topUncertainties = analysis.uncertainties.slice(0, 2);
+
     const lines: string[] = [];
 
     lines.push(`*Product:* ${analysis.productName || 'Unknown product'}`);
@@ -136,16 +141,6 @@ export class MealsService {
     }
 
     lines.push('');
-
-    if (analysis.ingredients.length) {
-      lines.push(`*Ingredients:* ${analysis.ingredients.join(', ')}`);
-      lines.push('');
-    }
-
-    if (analysis.labelClaims.length) {
-      lines.push(`*Label claims:* ${analysis.labelClaims.join(', ')}`);
-      lines.push('');
-    }
 
     if (
       analysis.nutrients.servingSize ||
@@ -175,31 +170,34 @@ export class MealsService {
       lines.push('');
     }
 
-    if (analysis.patternAlerts.length) {
-      lines.push(`*Pattern alert:* ${analysis.patternAlerts.join(' ')}`);
+    if (topConcerns.length) {
+      lines.push(`*Main concerns:* ${topConcerns.join('; ')}`);
       lines.push('');
     }
 
-    if (analysis.concerns.length) {
-      lines.push(`*Health concerns:* ${analysis.concerns.join(', ')}`);
+    if (shortVerdict) {
+      lines.push(`*Health review:* ${shortVerdict}`);
       lines.push('');
     }
 
-    if (analysis.medicalTips.length) {
-      lines.push(`*Medical tips:* ${analysis.medicalTips.join(' ')}`);
-      lines.push('');
+    if (shortAdvice) {
+      lines.push(`*Advice:* ${shortAdvice}`);
     }
 
-    lines.push(`*Health review:* ${analysis.verdict}`);
-    lines.push('');
-    lines.push(`*Advice:* ${analysis.advice}`);
-
-    if (analysis.uncertainties.length) {
+    if (topUncertainties.length) {
       lines.push('');
-      lines.push(`*Unclear from image:* ${analysis.uncertainties.join(', ')}`);
+      lines.push(`*Unclear from image:* ${topUncertainties.join('; ')}`);
     }
 
     return lines.join('\n');
+  }
+
+  private shortenText(value: string, maxLength: number): string {
+    const normalized = (value ?? '').replace(/\s+/g, ' ').trim();
+    if (!normalized) return '';
+    if (normalized.length <= maxLength) return normalized;
+
+    return `${normalized.slice(0, maxLength - 1).trimEnd()}...`;
   }
 
   private normalizeAnalysisResult(analysis: MealAnalysisResult): MealAnalysisResult {
