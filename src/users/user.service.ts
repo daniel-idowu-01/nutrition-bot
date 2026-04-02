@@ -18,4 +18,16 @@ export class UserService {
   async findByPhone(phoneNumber: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ phoneNumber });
   }
+
+  async updateDailyCalorieTarget(
+    userId: string,
+    dailyCalorieTarget: number | null,
+  ): Promise<UserDocument | null> {
+    const update =
+      dailyCalorieTarget === null
+        ? { $unset: { dailyCalorieTarget: '' } }
+        : { $set: { dailyCalorieTarget } };
+
+    return this.userModel.findByIdAndUpdate(userId, update, { new: true });
+  }
 }

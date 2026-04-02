@@ -14,6 +14,9 @@ export class User {
   @Prop({ default: false })
   onboarded: boolean;
 
+  @Prop({ min: 800, max: 6000 })
+  dailyCalorieTarget?: number;
+
   // Optional profile for better AI personalisation
   @Prop({ type: Object, default: {} })
   profile: {

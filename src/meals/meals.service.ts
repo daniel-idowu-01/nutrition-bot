@@ -6,6 +6,7 @@ import { MealLog, MealLogDocument } from './schemas/meal-log.schema';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { UserService } from 'src/users/user.service';
+import { UserDocument } from 'src/users/schemas/user.schema';
 import { WhatsAppMessage } from '../whatsapp/dto/incoming-message.dto';
 import { MealAnalysisResult } from 'src/ai-models/meal-analysis.types';
 import { MealAnalysisService } from 'src/ai-models/meal-analysis.service';
@@ -58,10 +59,15 @@ export class MealsService {
         mealTime: new Date(),
       });
 
-      const calorieProgress = await this.buildTodayCalorieProgress(user._id);
+      const calorieProgress = await this.buildTodayCalorieProgress(user._id, user);
+      const response = this.formatReply(normalizedAnalysis, calorieProgress);
+      const reply = this.hasCustomCalorieTarget(user)
+        ? response
+        : `${response}\n\nTip: set your daily calorie target, e.g. "set calorie limit 1800".`;
+
       await this.whatsappService.sendMessage(
         from,
-        this.formatReply(normalizedAnalysis, calorieProgress),
+        reply,
       );
     } catch (error) {
       this.logger.error(`Failed to review product image for ${from}`, error);
@@ -92,8 +98,19 @@ export class MealsService {
         return;
       }
 
+      const calorieTargetReply = await this.buildCalorieTargetWorkflowReply(
+        user,
+        message.text?.body ?? '',
+      );
+
+      if (calorieTargetReply) {
+        await this.whatsappService.sendMessage(from, calorieTargetReply);
+        return;
+      }
+
       const calorieReply = await this.buildCalorieCounterReply(
         user._id,
+        user,
         message.text?.body ?? '',
       );
 
@@ -110,7 +127,8 @@ export class MealsService {
 
       await this.whatsappService.sendMessage(
         from,
-        reply || 'Ask about a product, ingredients, calories, or send a clear product photo for review.',
+        reply ||
+          'Ask about a product, ingredients, calories, or send a clear product photo for review.\nTip: set your daily calorie target, e.g. "set calorie limit 1800".',
       );
     } catch (error) {
       this.logger.error(`Failed to answer text message for ${from}`, error);
@@ -283,6 +301,7 @@ export class MealsService {
 
   private async buildCalorieCounterReply(
     userId: Types.ObjectId,
+    user: UserDocument,
     messageText: string,
   ): Promise<string | null> {
     const normalizedMessage = messageText.trim().toLowerCase();
@@ -304,25 +323,29 @@ export class MealsService {
       return null;
     }
 
+    const targetCalories = this.resolveDailyCalorieTarget(user);
+
     if (normalizedMessage.includes('week') || normalizedMessage.includes('7 day')) {
-      return this.buildSevenDayCalorieSummary(userId);
+      return this.buildSevenDayCalorieSummary(userId, targetCalories);
     }
 
     if (normalizedMessage.includes('yesterday')) {
-      return this.buildYesterdayCalorieSummary(userId);
+      return this.buildYesterdayCalorieSummary(userId, targetCalories);
     }
 
-    return this.buildTodayCalorieSummary(userId);
+    return this.buildTodayCalorieSummary(userId, targetCalories);
   }
 
-  private async buildTodayCalorieSummary(userId: Types.ObjectId): Promise<string> {
+  private async buildTodayCalorieSummary(
+    userId: Types.ObjectId,
+    targetCalories: number,
+  ): Promise<string> {
     const now = new Date();
     const start = this.startOfDay(now);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
     const summary = await this.calculateCaloriesForRange(userId, start, end);
-    const targetCalories = this.getDailyCalorieTarget();
     const remaining = Math.max(targetCalories - summary.totalCalories, 0);
     const overBy = Math.max(summary.totalCalories - targetCalories, 0);
 
@@ -344,18 +367,20 @@ export class MealsService {
     } else {
       lines.push(`${remaining} kcal remaining for today.`);
     }
+    lines.push('Tip: set your daily calorie target, e.g. "set calorie limit 1800".');
 
     return lines.join('\n');
   }
 
-  private async buildYesterdayCalorieSummary(userId: Types.ObjectId): Promise<string> {
+  private async buildYesterdayCalorieSummary(
+    userId: Types.ObjectId,
+    targetCalories: number,
+  ): Promise<string> {
     const todayStart = this.startOfDay(new Date());
     const yesterdayStart = new Date(todayStart);
     yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
     const summary = await this.calculateCaloriesForRange(userId, yesterdayStart, todayStart);
-    const targetCalories = this.getDailyCalorieTarget();
-
     const lines = [
       `*Calorie counter (yesterday)*`,
       `Tracked meals: ${summary.mealsCounted}`,
@@ -370,11 +395,15 @@ export class MealsService {
     if (summary.mealsCounted === 0) {
       lines.push('No meals were tracked yesterday.');
     }
+    lines.push('Tip: set your daily calorie target, e.g. "set calorie limit 1800".');
 
     return lines.join('\n');
   }
 
-  private async buildSevenDayCalorieSummary(userId: Types.ObjectId): Promise<string> {
+  private async buildSevenDayCalorieSummary(
+    userId: Types.ObjectId,
+    targetCalories: number,
+  ): Promise<string> {
     const todayStart = this.startOfDay(new Date());
     const rangeStart = new Date(todayStart);
     rangeStart.setDate(rangeStart.getDate() - 6);
@@ -382,7 +411,6 @@ export class MealsService {
     rangeEnd.setDate(rangeEnd.getDate() + 1);
 
     const summary = await this.calculateCaloriesForRange(userId, rangeStart, rangeEnd);
-    const targetCalories = this.getDailyCalorieTarget();
     const periodTarget = targetCalories * 7;
     const averagePerDay = Math.round(summary.totalCalories / 7);
 
@@ -401,12 +429,14 @@ export class MealsService {
     if (summary.mealsCounted === 0) {
       lines.push('No meals tracked in the last 7 days.');
     }
+    lines.push('Tip: set your daily calorie target, e.g. "set calorie limit 1800".');
 
     return lines.join('\n');
   }
 
   private async buildTodayCalorieProgress(
     userId: Types.ObjectId,
+    user: UserDocument,
   ): Promise<{ totalCalories: number; targetCalories: number; mealsCounted: number }> {
     const start = this.startOfDay(new Date());
     const end = new Date(start);
@@ -416,9 +446,84 @@ export class MealsService {
 
     return {
       totalCalories: summary.totalCalories,
-      targetCalories: this.getDailyCalorieTarget(),
+      targetCalories: this.resolveDailyCalorieTarget(user),
       mealsCounted: summary.mealsCounted,
     };
+  }
+
+  private async buildCalorieTargetWorkflowReply(
+    user: UserDocument,
+    messageText: string,
+  ): Promise<string | null> {
+    const normalizedMessage = messageText.trim().toLowerCase();
+
+    const resetTargetKeywords = [
+      'reset calorie',
+      'clear calorie',
+      'remove calorie',
+      'use default calorie',
+      'default calorie',
+    ];
+
+    const shouldResetTarget = resetTargetKeywords.some((keyword) =>
+      normalizedMessage.includes(keyword),
+    );
+
+    if (shouldResetTarget) {
+      await this.usersService.updateDailyCalorieTarget(user._id.toString(), null);
+      return `Done. Your daily calorie target is reset to the default ${this.getDefaultDailyCalorieTarget()} kcal.\nTip: send "set calorie limit 1800" any time to personalize it again.`;
+    }
+
+    const mentionsCalorieTarget =
+      normalizedMessage.includes('calorie') &&
+      (normalizedMessage.includes('target') ||
+        normalizedMessage.includes('limit') ||
+        normalizedMessage.includes('goal') ||
+        normalizedMessage.includes('set'));
+
+    const requestedTarget = this.extractRequestedCalorieTarget(normalizedMessage);
+
+    if (requestedTarget !== null) {
+      if (requestedTarget < 800 || requestedTarget > 6000) {
+        return 'Please set a daily calorie target between 800 and 6000 kcal.';
+      }
+
+      await this.usersService.updateDailyCalorieTarget(
+        user._id.toString(),
+        requestedTarget,
+      );
+      return `Done. Your daily calorie target is now ${requestedTarget} kcal.\nYou can ask "calories today" to track progress.`;
+    }
+
+    if (mentionsCalorieTarget) {
+      const currentTarget = this.resolveDailyCalorieTarget(user);
+      const userHasCustomTarget =
+        typeof user.dailyCalorieTarget === 'number' &&
+        Number.isFinite(user.dailyCalorieTarget);
+
+      return userHasCustomTarget
+        ? `Your current daily calorie target is ${currentTarget} kcal.\nTo change it, send something like "set calorie limit 1900".`
+        : `Your current daily calorie target is ${currentTarget} kcal (default).\nTo set yours, send something like "set calorie limit 1900".`;
+    }
+
+    return null;
+  }
+
+  private extractRequestedCalorieTarget(message: string): number | null {
+    const pattern =
+      /(set|change|update|make|adjust|use)\s+(my\s+)?(daily\s+)?(calorie|calories|kcal)\s*(target|goal|limit)?\s*(to)?\s*(\d{3,5})/i;
+    const match = message.match(pattern);
+    if (match?.[7]) {
+      return Number(match[7]);
+    }
+
+    const fallbackPattern = /(calorie|calories|kcal).{0,20}(\d{3,5})/i;
+    const fallbackMatch = message.match(fallbackPattern);
+    if (fallbackMatch?.[2] && message.includes('set')) {
+      return Number(fallbackMatch[2]);
+    }
+
+    return null;
   }
 
   private async calculateCaloriesForRange(
@@ -461,12 +566,26 @@ export class MealsService {
     return start;
   }
 
-  private getDailyCalorieTarget(): number {
+  private resolveDailyCalorieTarget(user?: UserDocument | null): number {
+    const userTarget = Number(user?.dailyCalorieTarget);
+    if (Number.isFinite(userTarget) && userTarget >= 800 && userTarget <= 6000) {
+      return Math.round(userTarget);
+    }
+
+    return this.getDefaultDailyCalorieTarget();
+  }
+
+  private getDefaultDailyCalorieTarget(): number {
     const configured = Number(this.config.get('DAILY_CALORIE_TARGET'));
     if (Number.isFinite(configured) && configured > 0) {
       return Math.round(configured);
     }
 
     return 2000;
+  }
+
+  private hasCustomCalorieTarget(user?: UserDocument | null): boolean {
+    const userTarget = Number(user?.dailyCalorieTarget);
+    return Number.isFinite(userTarget) && userTarget >= 800 && userTarget <= 6000;
   }
 }
