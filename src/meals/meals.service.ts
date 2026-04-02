@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { MealLog, MealLogDocument } from './schemas/meal-log.schema';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
@@ -16,6 +17,7 @@ export class MealsService {
 
   constructor(
     @InjectModel(MealLog.name) private readonly mealLogModel: Model<MealLogDocument>,
+    private readonly config: ConfigService,
     private readonly mealAnalysisService: MealAnalysisService,
     private readonly cloudinaryService: CloudinaryService,
     @Inject(forwardRef(() => WhatsAppService))
@@ -56,7 +58,11 @@ export class MealsService {
         mealTime: new Date(),
       });
 
-      await this.whatsappService.sendMessage(from, this.formatReply(normalizedAnalysis));
+      const calorieProgress = await this.buildTodayCalorieProgress(user._id);
+      await this.whatsappService.sendMessage(
+        from,
+        this.formatReply(normalizedAnalysis, calorieProgress),
+      );
     } catch (error) {
       this.logger.error(`Failed to review product image for ${from}`, error);
       await this.whatsappService.sendMessage(
@@ -83,6 +89,16 @@ export class MealsService {
 
       if (directReply) {
         await this.whatsappService.sendMessage(from, directReply);
+        return;
+      }
+
+      const calorieReply = await this.buildCalorieCounterReply(
+        user._id,
+        message.text?.body ?? '',
+      );
+
+      if (calorieReply) {
+        await this.whatsappService.sendMessage(from, calorieReply);
         return;
       }
 
@@ -126,7 +142,10 @@ export class MealsService {
     return lines.join('\n');
   }
 
-  private formatReply(analysis: MealAnalysisResult): string {
+  private formatReply(
+    analysis: MealAnalysisResult,
+    calorieProgress?: { totalCalories: number; targetCalories: number; mealsCounted: number },
+  ): string {
     const topConcerns = analysis.concerns.slice(0, 2);
     const shortAdvice = this.shortenText(analysis.advice, 180);
     const shortVerdict = this.shortenText(analysis.verdict, 160);
@@ -182,6 +201,13 @@ export class MealsService {
 
     if (shortAdvice) {
       lines.push(`*Advice:* ${shortAdvice}`);
+    }
+
+    if (calorieProgress) {
+      lines.push('');
+      lines.push(
+        `*Calories today:* ${calorieProgress.totalCalories} / ${calorieProgress.targetCalories} kcal (${calorieProgress.mealsCounted} meals tracked)`,
+      );
     }
 
     if (topUncertainties.length) {
@@ -253,5 +279,194 @@ export class MealsService {
     }
 
     return `The last message I sent was: "${previousAssistantMessage.text}"`;
+  }
+
+  private async buildCalorieCounterReply(
+    userId: Types.ObjectId,
+    messageText: string,
+  ): Promise<string | null> {
+    const normalizedMessage = messageText.trim().toLowerCase();
+
+    const calorieIntentKeywords = [
+      'calorie',
+      'calories',
+      'kcal',
+      'intake',
+      'how many calories',
+      'calorie count',
+    ];
+
+    const isCalorieQuery = calorieIntentKeywords.some((keyword) =>
+      normalizedMessage.includes(keyword),
+    );
+
+    if (!isCalorieQuery) {
+      return null;
+    }
+
+    if (normalizedMessage.includes('week') || normalizedMessage.includes('7 day')) {
+      return this.buildSevenDayCalorieSummary(userId);
+    }
+
+    if (normalizedMessage.includes('yesterday')) {
+      return this.buildYesterdayCalorieSummary(userId);
+    }
+
+    return this.buildTodayCalorieSummary(userId);
+  }
+
+  private async buildTodayCalorieSummary(userId: Types.ObjectId): Promise<string> {
+    const now = new Date();
+    const start = this.startOfDay(now);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+
+    const summary = await this.calculateCaloriesForRange(userId, start, end);
+    const targetCalories = this.getDailyCalorieTarget();
+    const remaining = Math.max(targetCalories - summary.totalCalories, 0);
+    const overBy = Math.max(summary.totalCalories - targetCalories, 0);
+
+    const lines = [
+      `*Calorie counter (today)*`,
+      `Tracked meals: ${summary.mealsCounted}`,
+      `Calories logged: ${summary.totalCalories} kcal`,
+      `Target: ${targetCalories} kcal`,
+    ];
+
+    if (summary.mealsMissingCalories > 0) {
+      lines.push(`Meals missing calorie estimate: ${summary.mealsMissingCalories}`);
+    }
+
+    if (summary.mealsCounted === 0) {
+      lines.push('No meals tracked yet today. Send a meal photo to start tracking.');
+    } else if (overBy > 0) {
+      lines.push(`You are ${overBy} kcal above target today.`);
+    } else {
+      lines.push(`${remaining} kcal remaining for today.`);
+    }
+
+    return lines.join('\n');
+  }
+
+  private async buildYesterdayCalorieSummary(userId: Types.ObjectId): Promise<string> {
+    const todayStart = this.startOfDay(new Date());
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+    const summary = await this.calculateCaloriesForRange(userId, yesterdayStart, todayStart);
+    const targetCalories = this.getDailyCalorieTarget();
+
+    const lines = [
+      `*Calorie counter (yesterday)*`,
+      `Tracked meals: ${summary.mealsCounted}`,
+      `Calories logged: ${summary.totalCalories} kcal`,
+      `Target: ${targetCalories} kcal`,
+    ];
+
+    if (summary.mealsMissingCalories > 0) {
+      lines.push(`Meals missing calorie estimate: ${summary.mealsMissingCalories}`);
+    }
+
+    if (summary.mealsCounted === 0) {
+      lines.push('No meals were tracked yesterday.');
+    }
+
+    return lines.join('\n');
+  }
+
+  private async buildSevenDayCalorieSummary(userId: Types.ObjectId): Promise<string> {
+    const todayStart = this.startOfDay(new Date());
+    const rangeStart = new Date(todayStart);
+    rangeStart.setDate(rangeStart.getDate() - 6);
+    const rangeEnd = new Date(todayStart);
+    rangeEnd.setDate(rangeEnd.getDate() + 1);
+
+    const summary = await this.calculateCaloriesForRange(userId, rangeStart, rangeEnd);
+    const targetCalories = this.getDailyCalorieTarget();
+    const periodTarget = targetCalories * 7;
+    const averagePerDay = Math.round(summary.totalCalories / 7);
+
+    const lines = [
+      `*Calorie counter (last 7 days)*`,
+      `Tracked meals: ${summary.mealsCounted}`,
+      `Calories logged: ${summary.totalCalories} kcal`,
+      `Daily average: ${averagePerDay} kcal/day`,
+      `7-day target: ${periodTarget} kcal`,
+    ];
+
+    if (summary.mealsMissingCalories > 0) {
+      lines.push(`Meals missing calorie estimate: ${summary.mealsMissingCalories}`);
+    }
+
+    if (summary.mealsCounted === 0) {
+      lines.push('No meals tracked in the last 7 days.');
+    }
+
+    return lines.join('\n');
+  }
+
+  private async buildTodayCalorieProgress(
+    userId: Types.ObjectId,
+  ): Promise<{ totalCalories: number; targetCalories: number; mealsCounted: number }> {
+    const start = this.startOfDay(new Date());
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+
+    const summary = await this.calculateCaloriesForRange(userId, start, end);
+
+    return {
+      totalCalories: summary.totalCalories,
+      targetCalories: this.getDailyCalorieTarget(),
+      mealsCounted: summary.mealsCounted,
+    };
+  }
+
+  private async calculateCaloriesForRange(
+    userId: Types.ObjectId,
+    from: Date,
+    to: Date,
+  ): Promise<{ totalCalories: number; mealsCounted: number; mealsMissingCalories: number }> {
+    const meals = await this.mealLogModel
+      .find({
+        userId,
+        mealTime: { $gte: from, $lt: to },
+      })
+      .select('nutrients.estimatedCalories')
+      .lean();
+
+    let totalCalories = 0;
+    let mealsCounted = 0;
+    let mealsMissingCalories = 0;
+
+    for (const meal of meals) {
+      const estimatedCalories = meal.nutrients?.estimatedCalories;
+      if (typeof estimatedCalories === 'number' && Number.isFinite(estimatedCalories)) {
+        totalCalories += estimatedCalories;
+        mealsCounted += 1;
+      } else {
+        mealsMissingCalories += 1;
+      }
+    }
+
+    return {
+      totalCalories: Math.round(totalCalories),
+      mealsCounted,
+      mealsMissingCalories,
+    };
+  }
+
+  private startOfDay(date: Date): Date {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }
+
+  private getDailyCalorieTarget(): number {
+    const configured = Number(this.config.get('DAILY_CALORIE_TARGET'));
+    if (Number.isFinite(configured) && configured > 0) {
+      return Math.round(configured);
+    }
+
+    return 2000;
   }
 }
