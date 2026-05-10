@@ -1,98 +1,211 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Nutrition Bot
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+[![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![WhatsApp](https://img.shields.io/badge/WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://developers.facebook.com/docs/whatsapp/)
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Overview
 
-## Description
+Nutrition Bot is an AI-powered nutrition tracking application built with NestJS and TypeScript. It leverages advanced AI models (Claude and Gemini) to analyze meal images and provide personalized nutrition insights. Users interact with the bot via WhatsApp, allowing seamless meal logging and conversation-based nutrition coaching.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+The application integrates with Cloudinary for image processing, MongoDB for data persistence, and the WhatsApp Business API for messaging. It's designed for scalability, maintainability, and ease of deployment using Docker.
 
-## Project setup
+## Features
 
+- **AI-Powered Meal Analysis**: Upload meal photos via WhatsApp, and the bot analyzes them using Anthropic's Claude or Google's Gemini to extract nutritional information.
+- **WhatsApp Integration**: Full conversational interface through WhatsApp, supporting text and image messages.
+- **User Management**: Secure user profiles with authentication and data privacy.
+- **Meal Logging**: Track daily meals with detailed nutritional breakdowns.
+- **Conversational AI**: Engage in natural language conversations for nutrition advice and goal setting.
+- **Image Processing**: Cloudinary integration for efficient image upload, storage, and processing.
+- **Scalable Architecture**: Modular NestJS structure with dependency injection and microservices-ready design.
+- **Comprehensive Testing**: Unit and end-to-end tests using Jest.
+- **Docker Deployment**: Containerized application with Docker Compose for easy deployment.
+
+## Tech Stack
+
+### Backend Framework
+- **NestJS**: Progressive Node.js framework for building efficient, reliable, and scalable server-side applications.
+- **TypeScript**: Strongly typed programming language that builds on JavaScript.
+
+### Database
+- **MongoDB**: NoSQL database for flexible data storage.
+- **Mongoose**: Elegant MongoDB object modeling for Node.js.
+
+### AI & ML
+- **Anthropic Claude**: Advanced language model for meal analysis and conversation.
+- **Google Gemini**: Alternative AI model for nutritional insights.
+
+### Integrations
+- **WhatsApp Business API**: For messaging and user interaction.
+- **Cloudinary**: Cloud-based image management and processing.
+
+### Development Tools
+- **ESLint**: Linting for code quality.
+- **Prettier**: Code formatting.
+- **Jest**: Testing framework for unit and e2e tests.
+- **Docker**: Containerization for consistent deployment.
+
+### Other Libraries
+- **Axios**: HTTP client for API requests.
+- **Class Validator/Transformer**: For request validation and transformation.
+- **RxJS**: Reactive programming library.
+
+## Architecture
+
+The application follows a modular architecture using NestJS modules:
+
+- **App Module**: Core application module with global configuration.
+- **Users Module**: Handles user registration, authentication, and profile management.
+- **Meals Module**: Manages meal logging, analysis, and nutritional data.
+- **Conversations Module**: Processes and stores chat interactions.
+- **WhatsApp Module**: Integrates with WhatsApp API for message handling.
+- **Cloudinary Module**: Manages image uploads and processing.
+- **AI Models Module**: Encapsulates AI integrations (Claude and Gemini) for meal analysis.
+
+### Data Flow
+1. User sends a message/image via WhatsApp.
+2. WhatsApp webhook receives the message and routes it to the appropriate service.
+3. For meal images: Uploaded to Cloudinary, then analyzed by AI models.
+4. Nutritional data is extracted and stored in MongoDB.
+5. Response is generated and sent back via WhatsApp.
+
+## Prerequisites
+
+- Node.js (v18 or higher)
+- npm or yarn
+- Docker and Docker Compose
+- MongoDB instance (local or cloud)
+- WhatsApp Business API account
+- Anthropic API key (for Claude)
+- Google AI API key (for Gemini)
+- Cloudinary account
+
+## Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/your-username/nutrition-bot.git
+   cd nutrition-bot
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Setup:**
+   Create a `.env` file in the root directory with the following variables:
+   ```env
+   PORT=3000
+   MONGODB_URI=mongodb://localhost:27017/nutrition-bot
+   WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token
+   WHATSAPP_VERIFY_TOKEN=your_whatsapp_verify_token
+   ANTHROPIC_API_KEY=your_anthropic_api_key
+   GOOGLE_AI_API_KEY=your_google_ai_api_key
+   CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+   CLOUDINARY_API_KEY=your_cloudinary_api_key
+   CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+   ```
+
+## Running the Application
+
+### Development Mode
 ```bash
-$ npm install
+npm run start:dev
 ```
 
-## Compile and run the project
-
+### Production Mode
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run build
+npm run start:prod
 ```
 
-## Run tests
-
+### Using Docker
 ```bash
-# unit tests
-$ npm run test
+docker-compose up --build
+```
 
-# e2e tests
-$ npm run test:e2e
+## Testing
 
-# test coverage
-$ npm run test:cov
+### Unit Tests
+```bash
+npm run test
+```
+
+### End-to-End Tests
+```bash
+npm run test:e2e
+```
+
+### Test Coverage
+```bash
+npm run test:cov
 ```
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+The application is containerized using Docker for easy deployment:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+1. **Build the Docker image:**
+   ```bash
+   docker build -t nutrition-bot .
+   ```
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+2. **Run with Docker Compose:**
+   ```bash
+   docker-compose up -d
+   ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+For production deployment, ensure proper environment variables are set and consider using a reverse proxy like Nginx for SSL termination.
 
-## Resources
+## API Documentation
 
-Check out a few resources that may come in handy when working with NestJS:
+The application exposes RESTful APIs for various functionalities. Key endpoints include:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+- `POST /webhooks/whatsapp`: WhatsApp webhook for incoming messages
+- `GET /users/:id`: Retrieve user profile
+- `POST /meals`: Log a new meal
+- `GET /meals/:userId`: Get user's meal history
 
-## Support
+For detailed API documentation, refer to the Swagger/OpenAPI specs or use tools like Postman to explore the endpoints.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Usage
 
-## Stay in touch
+1. **User Registration**: Users start a conversation with the bot on WhatsApp.
+2. **Meal Logging**: Send photos of meals for AI analysis.
+3. **Nutrition Queries**: Ask questions about nutrition, calories, or dietary advice.
+4. **Progress Tracking**: View meal history and nutritional summaries.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Example interaction:
+- User: [sends photo of a salad]
+- Bot: "Analyzing your meal... This appears to be a mixed green salad with tomatoes and cucumbers. Estimated calories: 150. Macronutrients: Protein 5g, Carbs 20g, Fat 8g."
+
+## Contributing
+
+We welcome contributions! Please follow these steps:
+
+1. Fork the repository.
+2. Create a feature branch: `git checkout -b feature/your-feature-name`
+3. Commit your changes: `git commit -m 'Add some feature'`
+4. Push to the branch: `git push origin feature/your-feature-name`
+5. Open a Pull Request.
+
+### Code Style
+- Follow the existing ESLint and Prettier configurations.
+- Write tests for new features.
+- Ensure all tests pass before submitting a PR.
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+For questions or support, please open an issue on GitHub or contact the development team.
+
+---
+
+Built with ❤️ using NestJS and cutting-edge AI technologies.
